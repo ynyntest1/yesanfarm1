@@ -104,10 +104,13 @@ def process_raw_data(file_bytes):
             "출장지": dest,
             "총출장시간": total_time,
             "여비등급": grade,
-            "출장기간": period_str
+            "출장기간": period_str,
+            "sort_key": f"{start_date} {start_time}"
         })
         
     final_df = pd.DataFrame(parsed_data)
+    if not final_df.empty:
+        final_df = final_df.sort_values(by="sort_key", ascending=True).drop(columns=["sort_key"]).reset_index(drop=True)
     return final_df, None
 
 def write_sheet(workbook, df, title, is_empty=False):

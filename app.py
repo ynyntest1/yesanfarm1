@@ -120,22 +120,34 @@ with tab_home:
     # 카드 클릭 시 탭 이동을 위한 자바스크립트 주입 (화면엔 안 보임)
     st.components.v1.html("""
     <script>
-    setTimeout(() => {
-        const doc = window.parent.document;
-        const cards = doc.querySelectorAll('.card-nav');
-        cards.forEach(card => {
-            if (card.classList.contains('menu-card-active')) {
-                card.style.cursor = 'pointer';
-                card.onclick = function() {
-                    const tabs = doc.querySelectorAll('button[data-baseweb="tab"]');
-                    const targetIdx = parseInt(card.getAttribute('data-target'), 10);
-                    if(tabs && tabs.length > targetIdx) {
-                        tabs[targetIdx].click();
+    function attachEvents() {
+        try {
+            const doc = window.parent.document || window.top.document;
+            if (!doc) return;
+            const cards = doc.querySelectorAll('.card-nav');
+            if (cards.length > 0) {
+                cards.forEach(card => {
+                    if (card.classList.contains('menu-card-active') && !card.dataset.eventsAttached) {
+                        card.style.cursor = 'pointer';
+                        card.onclick = function() {
+                            const tabs = doc.querySelectorAll('button[data-baseweb="tab"]');
+                            const targetIdx = parseInt(card.getAttribute('data-target'), 10);
+                            if(tabs && tabs.length > targetIdx) {
+                                tabs[targetIdx].click();
+                            }
+                        };
+                        card.dataset.eventsAttached = 'true';
                     }
-                };
+                });
+            } else {
+                // 모바일 환경 등에서 렌더링이 느릴 경우를 대비해 재시도
+                setTimeout(attachEvents, 200);
             }
-        });
-    }, 150);
+        } catch(e) {
+            console.error(e);
+        }
+    }
+    setTimeout(attachEvents, 100);
     </script>
     """, height=0)
 

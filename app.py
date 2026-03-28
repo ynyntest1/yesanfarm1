@@ -2,6 +2,7 @@ import streamlit as st
 from views.expense_report import show as show_expense_report
 from views.meal_allowance import show as show_meal_allowance
 from views.meal_list import show as show_meal_list
+from views.team_settings import show as show_team_settings
 
 st.set_page_config(
     page_title="업무 자동화 도구 모음",
@@ -15,11 +16,12 @@ st.markdown("---")
 st.markdown("아래 탭을 클릭하면 해당 기능으로 이동할 수 있습니다.")
 
 # ─── 탭 네비게이션 ────────────────────────────────────────────────────
-tab_home, tab_expense, tab_meal, tab_meallist = st.tabs([
+tab_home, tab_expense, tab_meal, tab_meallist, tab_settings = st.tabs([
     "🏠 홈",
     "📄 여비지급명세서",
-    "💰 급량비",
+    "💰 급식비",
     "🍱 식사명단 취합",
+    "⚙️ 팀 설정",
 ])
 
 # ─── 홈 ──────────────────────────────────────────────────────────────
@@ -88,12 +90,15 @@ with tab_home:
         {"icon": "📄", "title": "여비지급명세서",
          "desc": "인사랑 출장내역서 엑셀을 업로드하면\n관내/관외 여비지급명세서를 자동으로 생성합니다.",
          "status": "운영중"},
-        {"icon": "💰", "title": "급량비 계산기",
-         "desc": "급량비 지급 대상자 명단을 입력하면\n자동으로 계산 및 정리해드립니다.",
-         "status": "개발중"},
+        {"icon": "💰", "title": "급식비 계산기",
+         "desc": "새올 초과근무목록 액셀 파일을 올리면\n지출품의 및 집행내역서를 생성합니다.",
+         "status": "운영중"},
         {"icon": "🍱", "title": "식사명단 취합",
          "desc": "여러 팀의 식사 신청 명단을\n한 번에 취합하고 정리합니다.",
          "status": "개발중"},
+        {"icon": "⚙️", "title": "팀 설정",
+         "desc": "팀 구조 변경이나 단골 식당 및\n문서 기본 결재선을 등록합니다.",
+         "status": "운영중"},
     ]
 
     cols = st.columns(len(MENU_ITEMS))
@@ -118,35 +123,37 @@ with tab_home:
             st.markdown(f'<div class="{card_class} card-nav" data-target="{idx + 1}">{card_inner}</div>', unsafe_allow_html=True)
 
     # 카드 클릭 시 탭 이동을 위한 자바스크립트 주입 (화면엔 안 보임)
-    st.components.v1.html("""
+    import time
+    st.components.v1.html(f"""
     <script>
-    function attachEvents() {
-        try {
+    // Force Re-render: {time.time()}
+    function attachEvents() {{
+        try {{
             const doc = window.parent.document || window.top.document;
             if (!doc) return;
             const cards = doc.querySelectorAll('.card-nav');
-            if (cards.length > 0) {
-                cards.forEach(card => {
-                    if (card.classList.contains('menu-card-active') && !card.dataset.eventsAttached) {
+            if (cards.length > 0) {{
+                cards.forEach(card => {{
+                    if (card.classList.contains('menu-card-active') && !card.dataset.eventsAttached) {{
                         card.style.cursor = 'pointer';
-                        card.onclick = function() {
+                        card.onclick = function() {{
                             const tabs = doc.querySelectorAll('button[data-baseweb="tab"]');
                             const targetIdx = parseInt(card.getAttribute('data-target'), 10);
-                            if(tabs && tabs.length > targetIdx) {
+                            if(tabs && tabs.length > targetIdx) {{
                                 tabs[targetIdx].click();
-                            }
-                        };
+                            }}
+                        }};
                         card.dataset.eventsAttached = 'true';
-                    }
-                });
-            } else {
+                    }}
+                }});
+            }} else {{
                 // 모바일 환경 등에서 렌더링이 느릴 경우를 대비해 재시도
                 setTimeout(attachEvents, 200);
-            }
-        } catch(e) {
+            }}
+        }} catch(e) {{
             console.error(e);
-        }
-    }
+        }}
+    }}
     setTimeout(attachEvents, 100);
     </script>
     """, height=0)
@@ -163,3 +170,6 @@ with tab_meal:
 
 with tab_meallist:
     show_meal_list()
+
+with tab_settings:
+    show_team_settings()

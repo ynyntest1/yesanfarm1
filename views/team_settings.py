@@ -11,8 +11,12 @@ def load_settings():
     if not os.path.exists(DATA_DIR):
         os.makedirs(DATA_DIR)
     if os.path.exists(SETTING_FILE):
-        with open(SETTING_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(SETTING_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            pass # 파일이 비어있거나 깨졌을 경우 기본값 반환
+            
     return {
         "team_name": "스마트팜지원팀",
         "confirmer": "지방농업주사 김경민",

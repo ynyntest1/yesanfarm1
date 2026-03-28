@@ -59,7 +59,7 @@ def show():
     
     if uploaded_file:
         try:
-            df = pd.read_excel(uploaded_file.getvalue())
+            df = pd.read_excel(io.BytesIO(uploaded_file.getvalue()))
             
             # 실제 데이터 헤더 찾기
             if "성명" in df.columns and "출근(실제)" in df.columns:

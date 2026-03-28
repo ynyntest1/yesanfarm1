@@ -49,7 +49,8 @@ def show():
     
     # 컴포넌트 렌더링
     st.info("💡 **팁:** 상자 안의 팀 이름을 더블클릭하면 수정할 수 있습니다. 각 과 상자 아래의 '+ 팀 추가' 버튼으로 새 팀을 단일 추가할 수 있습니다.")
-    org_component = components.declare_component("org_chart", path="components/org_chart")
+    _component_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "components", "org_chart")
+    org_component = components.declare_component("org_chart", path=_component_dir)
     
     # 컴포넌트의 결과물 받기 (사용자가 저장 버튼을 누르면 이 리턴값이 바뀜)
     ret_val = org_component(org_data=current_org, unassigned=current_u)

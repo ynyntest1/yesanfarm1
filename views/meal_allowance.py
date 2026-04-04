@@ -1,9 +1,11 @@
 import streamlit as st
 import pandas as pd
 import io
+import os
 import xlsxwriter
 import calendar
 from datetime import datetime
+import streamlit.components.v1 as components
 from views.team_settings import load_settings, save_settings
 
 def amount_to_korean(num):
@@ -125,82 +127,109 @@ def show():
             
             # ────────────────────────────────────────────────────────────────
             st.markdown("---")
-            st.subheader("2. 대상자 필터링 (부서 및 인원 선택)")
-            st.markdown("과를 먼저 선택하고 세부 팀을 고르면 소속 직원이 자동으로 모두 선택됩니다.(팀설정에서 변경가능)")
-            
-            # 단계 1: 과 단위 선택 (버튼형)
+            st.subheader("2. 대상자 선택 및 순서 지정")
+
+            # ── 팀 설정 로드 ─────────────────────────────────────────────────
+            t_set      = load_settings()
+            loaded_org = t_set.get("org_data", {})
+
+            # ── 단계 1: 과 자동 감지 (엑셀 부서 컬럼 기반, 하드코딩 제거) ──
+            excel_divs = sorted({
+                str(x).strip() for x in data_df["부서"].dropna()
+                if str(x).strip() not in ["", "nan"]
+            })
+
             if "selected_div" not in st.session_state:
                 st.session_state["selected_div"] = None
 
-            div_list = ["기술지원과", "스마트농업과", "미래농업과"]
-            st.markdown("##### 🏢 과 단위 선택")
-            cols_div = st.columns(len(div_list))
-            for i, div_name in enumerate(div_list):
+            st.markdown("##### 🏢 과 선택")
+            cols_div = st.columns(max(len(excel_divs), 1))
+            for i, div_name in enumerate(excel_divs):
                 with cols_div[i]:
                     btn_type = "primary" if st.session_state.get("selected_div") == div_name else "secondary"
-                    # 버튼을 누르면 상태를 업데이트하고 페이지 새로고침
                     if st.button(div_name, use_container_width=True, type=btn_type, key=f"div_btn_{i}"):
                         st.session_state["selected_div"] = div_name
-                        st.session_state["selected_team"] = None  # 과가 바뀌면 팀 초기화
+                        st.session_state["selected_team"] = None
                         st.rerun()
 
             selected_div = st.session_state.get("selected_div")
             if not selected_div:
-                st.info("👆 위에서 소속 과 상자를 눌러주세요.")
+                st.info("👆 위에서 소속 과를 선택해주세요.")
                 return
-                
-            # 팀 환경설정 데이터 먼저 불러오기 (조직도 기반 동적 렌더링을 위해)
-            t_set = load_settings()
-            
-            # 부서 매핑 (조직도 정보에서 추출)
-            loaded_org = t_set.get("org_data", {})
-            org_chart = {div: list(teams.keys()) for div, teams in loaded_org.items()}
-            
-            # 만약 조직도가 비어있다면 기본값 부여
-            if not org_chart:
-                org_chart = {
-                    "기술지원과": ["기획운영팀", "인력육성팀", "농기계팀", "농업지원팀"],
-                    "스마트농업과": ["식량작물팀", "과수기술팀", "스마트원예팀", "스마트팜지원팀"],
-                    "미래농업과": ["축산개발팀", "귀농지원팀", "농촌자원팀", "먹거리지원팀", "학교급식팀"]
-                }
-            
-            filtered_depts = org_chart.get(selected_div, [])
-                
-            # 단계 2: 팀 선택 (버튼형)
-            st.markdown(f"##### 🏷️ [{selected_div}] 소속 팀 선택")
+
+            # ── 단계 2: 팀 선택 (team_settings org_data 기반) ───────────────
+            teams_in_div = list(loaded_org.get(selected_div, {}).keys())
+
+            if not teams_in_div:
+                st.warning(f"[팀 설정] 탭에서 {selected_div} 소속 팀을 먼저 등록해주세요.")
+                return
+
+            st.markdown(f"##### 🏷️ [{selected_div}] 팀 선택")
             if "selected_team" not in st.session_state:
                 st.session_state["selected_team"] = None
-                
-            cols_team = st.columns(len(filtered_depts) if filtered_depts else 1)
-            for i, team_name in enumerate(filtered_depts):
+
+            cols_team = st.columns(max(len(teams_in_div), 1))
+            for i, tname in enumerate(teams_in_div):
                 with cols_team[i % len(cols_team)]:
-                    btn_type = "primary" if st.session_state.get("selected_team") == team_name else "secondary"
-                    if st.button(team_name, use_container_width=True, type=btn_type, key=f"team_btn_{i}"):
-                        st.session_state["selected_team"] = team_name
+                    btn_type = "primary" if st.session_state.get("selected_team") == tname else "secondary"
+                    if st.button(tname, use_container_width=True, type=btn_type, key=f"team_btn_{i}"):
+                        st.session_state["selected_team"] = tname
                         st.rerun()
-                        
+
             selected_team = st.session_state.get("selected_team")
             if not selected_team:
-                st.info("👆 위에서 소속 팀 상자를 눌러주세요.")
+                st.info("👆 위에서 소속 팀을 선택해주세요.")
                 return
-            
-            # 단계 3: 팀원 자동 선택 (팀 설정의 조직도 기반)
-            team_members = loaded_org.get(selected_div, {}).get(selected_team, [])
-            
-            if not team_members:
-                # 만약 조직도에 등록된 인원이 전혀 없다면 (기존 방식 유지)
-                dept_filtered_df = data_df[data_df["부서"].astype(str).str.contains(selected_team, na=False)]
-                all_names = [str(x) for x in dept_filtered_df["성명"].unique() if str(x) not in ["nan", "None", ""]]
-            else:
-                # 조직도에 등록된 이름 그대로 사용!
-                all_names = team_members
-            
-            # 파란색 칩으로 매력적인 다중 선택
-            selected_names = st.multiselect(
-                "👤 이번 청구 대상 인원 확인 및 제외 (팀 전체가 기본으로 꽉 채워집니다)", 
-                options=all_names, 
-                default=[n for n in all_names if n in data_df["성명"].values]
+
+            # ── 단계 3: 팀원 목록 구성 ──────────────────────────────────────
+            # 기존 팀원 (team_settings 저장 순서)
+            existing_members = loaded_org.get(selected_div, {}).get(selected_team, [])
+
+            # 엑셀에 있는 전체 인원 (중복 제거, 순서 유지)
+            excel_names_unique = list(dict.fromkeys(
+                str(x).strip() for x in data_df["성명"].dropna()
+                if str(x).strip() not in ["", "nan"]
+            ))
+
+            # 조직도 전체에서 이미 배정된 인원
+            all_assigned = {
+                name
+                for div_data in loaded_org.values()
+                for team_data in div_data.values()
+                for name in team_data
+            }
+
+            # 신규 인원 = 엑셀에 있지만 어디에도 배정 안 된 사람
+            new_members = [n for n in excel_names_unique if n not in all_assigned]
+
+            # ── 단계 4: 드래그 순서 지정 컴포넌트 ──────────────────────────
+            st.markdown(f"##### 👥 [{selected_team}] 팀원 순서 지정")
+            st.caption("드래그로 순서를 바꾸면 자동 저장됩니다. 💼 아이콘이 팀장, 파란 점선이 신규 인원입니다.")
+
+            _sorter_dir = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                "components", "member_sorter"
             )
+            member_sorter_component = components.declare_component("member_sorter", path=_sorter_dir)
+
+            sort_result = member_sorter_component(
+                members     = existing_members,
+                new_members = new_members,
+                team_key    = f"{selected_div}__{selected_team}",
+                key         = f"sorter_{selected_div}_{selected_team}"
+            )
+
+            # 드래그 결과가 오면 team_settings 즉시 저장 (GitHub 자동 커밋)
+            if sort_result is not None:
+                new_order = sort_result.get("ordered_members", [])
+                loaded_org.setdefault(selected_div, {})[selected_team] = new_order
+                t_set["org_data"] = loaded_org
+                t_set["unassigned"] = [u for u in t_set.get("unassigned", []) if u not in new_order]
+                save_settings(t_set)
+                selected_names = new_order
+            else:
+                # 첫 렌더 (아직 드래그 없음) → 저장된 순서 + 신규 인원
+                selected_names = existing_members + new_members
             
             # 엑셀 데이터 필터링: 선택된 명단에 해당하는 사람의 모든 초과근무 추출
             filtered_data_df = data_df[data_df["성명"].astype(str).isin(selected_names)]
@@ -231,26 +260,22 @@ def show():
                 return
                 
             # ────────────────────────────────────────────────────────────────
-            # 팀 환경설정 데이터 불러오기
-            t_set = load_settings()
-            
             st.markdown("---")
             st.subheader("3. 서류 기본 정보 입력")
-            
-            # 조직도 정보를 바탕으로 확인자/작성자 인공지능 자동완성! (첫번째가 팀장, 마지막이 서기/담당)
+
+            # 순서 기반으로 확인자(팀장=첫번째) / 작성자(막내=마지막) 자동완성
             rank_map = t_set.get("rank_dict", {})
-            
+
             default_confirmer = ""
-            default_writer = ""
-            if team_members:
-                t_leader = team_members[0]
-                l_rank = rank_map.get(t_leader, "지방농업주사")
-                default_confirmer = f"{l_rank} {t_leader}"
-                
-                t_writer = team_members[-1]
-                w_rank = rank_map.get(t_writer, "지방농업서기")
-                default_writer = f"{w_rank} {t_writer}"
-            
+            default_writer    = ""
+            # existing_members 기준 (드래그 저장 전엔 기존 순서 사용)
+            ref_list = existing_members if existing_members else selected_names
+            if ref_list:
+                leader = ref_list[0]
+                default_confirmer = f"{rank_map.get(leader, '지방농업주사')} {leader}"
+                writer = ref_list[-1]
+                default_writer    = f"{rank_map.get(writer, '지방농업서기')} {writer}"
+
             col1, col2, col3, col4 = st.columns(4)
             with col1: team_name = st.text_input("팀명", value=selected_team)
             with col2: target_month = st.text_input("기준 월", value=str(datetime.now().month))
@@ -265,9 +290,9 @@ def show():
             
             disp_df = filtered_data_df[['근무일자', '부서', '성명', '휴일구분', '출근(실제)', '퇴근(실제)', '수당시간(분)', '근무내역']].copy()
             
-            # 성명 순서를 팀원 등록 순서(team_members) 에 우선 맞추기 (1순위 정렬)
-            if team_members:
-                name_order = {name: i for i, name in enumerate(team_members)}
+            # 성명 순서를 드래그 지정 순서(selected_names) 에 맞추기 (1순위 정렬)
+            if selected_names:
+                name_order = {name: i for i, name in enumerate(selected_names)}
                 disp_df['_name_order'] = disp_df['성명'].map(lambda x: name_order.get(x, 999))
             else:
                 disp_df['_name_order'] = 0
@@ -278,7 +303,7 @@ def show():
             disp_df.insert(0, '순번', disp_df.index)
             
             # 다른 팀이나 인원을 지웠다 켰을때, 혹은 분 조건을 바꿀때 테이블 리셋
-            current_view_key = f"{selected_div}_{selected_team}_{','.join(selected_names)}_{min_hours}"
+            current_view_key = f"{selected_div}_{selected_team}_{','.join(str(n) for n in selected_names)}_{min_hours}"
             if st.session_state.get("current_view_id") != current_view_key:
                 if "meal_data_editor" in st.session_state:
                     del st.session_state["meal_data_editor"]

@@ -7,7 +7,7 @@ import xlsxwriter
 
 @st.cache_data
 def process_raw_data(file_bytes):
-    df = pd.read_excel(file_bytes, header=None)
+    df = pd.read_excel(io.BytesIO(file_bytes), header=None)
 
     header_r_idx = -1
     col_map = {}

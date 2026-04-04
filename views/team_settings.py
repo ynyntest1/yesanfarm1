@@ -45,9 +45,7 @@ def show():
     st.markdown("급식비 탭에서 엑셀 파일을 올릴 때마다 새로운 인원이 있으면 자동으로 아래의 **[대기열]** 바구니에 담깁니다. 이름을 마우스로 끌어서 알맞은 과/팀 상자에 넣어주세요! 팀 이름(글씨)을 더블클릭하면 직접 수정도 가능합니다.")
     
     settings = load_settings()
-    
-    settings = load_settings()
-    
+
     current_org = settings.get("org_data", {})
     current_u = settings.get("unassigned", [])
     

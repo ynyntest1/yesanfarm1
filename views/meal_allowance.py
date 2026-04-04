@@ -16,12 +16,7 @@ def amount_to_korean(num):
         res = ""
         for i, c in enumerate(s):
             if c != '0':
-                unit = units[l - 1 - i]
-                # 십·백·천 앞 '일'은 생략 (일십 → 십, 일백 → 백, 일천 → 천)
-                if c == '1' and unit:
-                    res += unit
-                else:
-                    res += nums[int(c)] + unit
+                res += nums[int(c)] + units[l - 1 - i]
         return res
     if num == 0: return "영"
     res = ""

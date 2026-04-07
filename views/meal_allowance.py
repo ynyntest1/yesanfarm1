@@ -191,14 +191,20 @@ def show():
                 if n and rk and rk not in ["nan", "None", ""]:
                     rank_map[n] = rk
 
-        # 멀티셀렉트로 이름 선택
+        # 체크박스 목록으로 이름 선택
         st.markdown(f"##### 👥 [{selected_div}] 대상자 선택")
-        selected_names = st.multiselect(
-            "급식비를 지급할 대상자를 선택하세요 (여러 명 선택 가능)",
-            options=all_names_in_div,
-            default=all_names_in_div,
-            key="meal_name_select"
-        )
+        st.caption("급식비를 지급할 대상자를 체크하세요.")
+
+        # 전체선택/해제 토글
+        select_all = st.checkbox("전체 선택", value=False, key="meal_select_all")
+
+        check_cols = st.columns(3)
+        selected_names = []
+        for i, name in enumerate(all_names_in_div):
+            rank_label = f" ({rank_map[name]})" if name in rank_map else ""
+            with check_cols[i % 3]:
+                if st.checkbox(f"{name}{rank_label}", value=select_all, key=f"chk_{name}"):
+                    selected_names.append(name)
 
         if not selected_names:
             st.info("👆 위에서 대상자를 한 명 이상 선택해주세요.")
@@ -222,22 +228,20 @@ def show():
 
         ordered = st.session_state[order_key]
 
-        # 순서 표시 + 위/아래 버튼
+        # 순서 표시 + 위/아래 버튼 (한 줄에 가로 배치)
         for idx, name in enumerate(ordered):
             rank_label = f" ({rank_map[name]})" if name in rank_map else ""
             role_label = " 💼 확인자" if idx == 0 else (" ✏️ 작성자" if idx == len(ordered) - 1 else "")
-            c1, c2, c3, c4 = st.columns([0.5, 4, 1, 1])
+            c1, c2, c3 = st.columns([5, 1, 1])
             with c1:
-                st.markdown(f"**{idx + 1}**")
+                st.markdown(f"**{idx + 1}.** {name}{rank_label}{role_label}")
             with c2:
-                st.markdown(f"{name}{rank_label}{role_label}")
-            with c3:
                 if idx > 0:
                     if st.button("⬆", key=f"up_{idx}", use_container_width=True):
                         ordered[idx], ordered[idx - 1] = ordered[idx - 1], ordered[idx]
                         st.session_state[order_key] = ordered
                         st.rerun()
-            with c4:
+            with c3:
                 if idx < len(ordered) - 1:
                     if st.button("⬇", key=f"down_{idx}", use_container_width=True):
                         ordered[idx], ordered[idx + 1] = ordered[idx + 1], ordered[idx]

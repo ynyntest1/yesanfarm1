@@ -353,7 +353,24 @@ def show():
         # 주의: Streamlit 내부 data_editor state 관리를 무너뜨리므로 수동 저장 제거
         # 빈칸 빼고 고유 식당 목록 추출
         unique_rests = [r for r in edited_df["급식장소"].unique() if str(r).strip() not in ["", "nan", "None"]]
-        
+
+        # ── 급식장소별 실시간 소계 ────────────────────────────────────────────
+        if len(unique_rests) > 0:
+            st.markdown("---")
+            st.markdown("##### 📊 급식장소별 소계 (실시간)")
+            rest_metric_cols = st.columns(min(len(unique_rests), 4))
+            for _i, _rname in enumerate(unique_rests):
+                _cnt = int((edited_df["급식장소"] == _rname).sum())
+                _amt = _cnt * 9000
+                with rest_metric_cols[_i % min(len(unique_rests), 4)]:
+                    st.metric(label=f"🍽️ {_rname}", value=f"{_amt:,}원", delta=f"{_cnt}명")
+            # 미입력 건수 경고
+            _empty_cnt = int(edited_df["급식장소"].astype(str).str.strip().isin(["", "nan", "None"]).sum())
+            if _empty_cnt > 0:
+                st.caption(f"⚠️ 급식장소 미입력 내역: **{_empty_cnt}건** — 모두 입력 후 다운로드해주세요.")
+            else:
+                st.success(f"✅ 모든 {len(edited_df)}건에 급식장소가 입력되었습니다. 아래에서 출력물을 확인하세요.")
+
         if len(unique_rests) > 0:
             st.markdown("---")
             st.subheader("5. 최종 출력물 확인 및 다운로드")

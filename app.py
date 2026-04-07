@@ -2,7 +2,6 @@ import streamlit as st
 from views.expense_report import show as show_expense_report
 from views.meal_allowance import show as show_meal_allowance
 from views.meal_list import show as show_meal_list
-from views.team_settings import show as show_team_settings
 
 st.set_page_config(
     page_title="업무 자동화 도구 모음",
@@ -16,12 +15,11 @@ st.markdown("---")
 st.markdown("아래 탭을 클릭하면 해당 기능으로 이동할 수 있습니다.")
 
 # ─── 탭 네비게이션 ────────────────────────────────────────────────────
-tab_home, tab_expense, tab_meal, tab_meallist, tab_settings = st.tabs([
+tab_home, tab_expense, tab_meal, tab_meallist = st.tabs([
     "🏠 홈",
     "📄 여비지급명세서",
     "💰 급식비",
     "🍱 식사명단 취합",
-    "⚙️ 팀 설정",
 ])
 
 # ─── 홈 ──────────────────────────────────────────────────────────────
@@ -53,10 +51,9 @@ with tab_home:
         opacity: 0.6;
     }
     
-    /* ─── 탭 스타일 커스텀 (모서리가 둥근 사각형) ─── */
     button[data-baseweb="tab"] {
         border: 1px solid #e0e0e0 !important;
-        border-radius: 12px !important; /* 둥근 사각형 */
+        border-radius: 12px !important;
         margin-right: 8px !important;
         padding: 8px 20px !important;
         background-color: #ffffff !important;
@@ -66,7 +63,6 @@ with tab_home:
         background-color: #f7f9fc !important;
         border-color: #c0c8d0 !important;
     }
-    /* 선택된 활성 탭 */
     button[data-baseweb="tab"][aria-selected="true"] {
         background-color: #4e8df5 !important;
         border-color: #4e8df5 !important;
@@ -75,11 +71,9 @@ with tab_home:
         color: white !important;
         font-weight: 700 !important;
     }
-    /* 기본 탭 밑줄(하이라이트 선) 제거 */
     div[data-baseweb="tab-highlight"] {
         display: none !important;
     }
-    /* 탭 리스트 하단선 제거 및 간격 조정 */
     div[data-baseweb="tab-board"] {
         border-bottom: none !important;
     }
@@ -96,9 +90,6 @@ with tab_home:
         {"icon": "🍱", "title": "식사명단 취합",
          "desc": "여러 팀의 식사 신청 명단을\n한 번에 취합하고 정리합니다.",
          "status": "개발중"},
-        {"icon": "⚙️", "title": "팀 설정",
-         "desc": "팀 구조 변경이나 단골 식당 및\n문서 기본 결재선을 등록합니다.",
-         "status": "운영중"},
     ]
 
     cols = st.columns(len(MENU_ITEMS))
@@ -122,7 +113,6 @@ with tab_home:
             card_class = "menu-card-active" if is_active else "menu-card-disabled"
             st.markdown(f'<div class="{card_class} card-nav" data-target="{idx + 1}">{card_inner}</div>', unsafe_allow_html=True)
 
-    # 카드 클릭 시 탭 이동을 위한 자바스크립트 주입 (화면엔 안 보임)
     import time
     st.components.v1.html(f"""
     <script>
@@ -147,7 +137,6 @@ with tab_home:
                     }}
                 }});
             }} else {{
-                // 모바일 환경 등에서 렌더링이 느릴 경우를 대비해 재시도
                 setTimeout(attachEvents, 200);
             }}
         }} catch(e) {{
@@ -170,6 +159,3 @@ with tab_meal:
 
 with tab_meallist:
     show_meal_list()
-
-with tab_settings:
-    show_team_settings()

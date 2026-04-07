@@ -34,10 +34,32 @@ def amount_to_korean(num):
         if part > 0: res = to_korean_chunk(part) + "억" + res
     return res
 
+@st.cache_data(show_spinner=False)
+def _parse_excel_cached(file_bytes: bytes, label: str):
+    """새올 초과근무목록 엑셀을 DataFrame으로 변환. 같은 파일은 캐시 재사용."""
+    df = pd.read_excel(io.BytesIO(file_bytes))
+    if "성명" in df.columns and "출근(실제)" in df.columns:
+        data = df.copy()
+    else:
+        header_idx = -1
+        for r in range(15):
+            row_vals = [str(x).strip().replace(' ', '') for x in df.iloc[r].fillna('')]
+            if "성명" in row_vals and "출근(실제)" in row_vals:
+                header_idx = r
+                break
+        if header_idx == -1:
+            return None, f"[{label}] 엑셀에서 '성명', '출근(실제)' 열을 찾을 수 없습니다."
+        data = df.iloc[header_idx+1:].copy()
+        data.columns = df.iloc[header_idx].tolist()
+    data = data[data["성명"].notna() & (data["성명"].astype(str).str.strip() != "") & (data["성명"].astype(str) != "nan")].copy()
+    data["고용형태"] = label
+    return data, None
+
+
 def show():
     st.title("💰 급식비 자동 문서 작성")
     st.markdown("새올에서 다운로드한 **[초과근무목록 액셀 파일]**을 올리면, 내부결재용 공문 텍스트와 지출증빙 엑셀(2p, 3p)을 자동으로 생성합니다.")
-    
+
     with st.expander("📖 급식비 지급 규정 요약 보기 (클릭하여 열기) *지방자치단체회계관리에관한훈령 제13조[별표2의2] (행정안전부)"):
         st.markdown("""
         **[급식비 지급 기준 및 필수 확인사항]**
@@ -57,28 +79,6 @@ def show():
             - ❌ 「공무원 여비 규정」에 따라 식비를 이미 지원받은 자(출장 등)
         """)
         
-    # ── 엑셀 파싱 헬퍼 ───────────────────────────────────────────────────────
-    def parse_excel(file_bytes, label):
-        """새올 초과근무목록 엑셀을 DataFrame으로 변환. label: '공무원' or '공무직'"""
-        df = pd.read_excel(io.BytesIO(file_bytes))
-        if "성명" in df.columns and "출근(실제)" in df.columns:
-            data = df.copy()
-        else:
-            header_idx = -1
-            for r in range(15):
-                row_vals = [str(x).strip().replace(' ', '') for x in df.iloc[r].fillna('')]
-                if "성명" in row_vals and "출근(실제)" in row_vals:
-                    header_idx = r
-                    break
-            if header_idx == -1:
-                st.error(f"[{label}] 엑셀에서 '성명', '출근(실제)' 열을 찾을 수 없습니다.")
-                return None
-            data = df.iloc[header_idx+1:].copy()
-            data.columns = df.iloc[header_idx].tolist()
-        data = data[data["성명"].notna() & (data["성명"].astype(str).str.strip() != "") & (data["성명"].astype(str) != "nan")].copy()
-        data["고용형태"] = label   # 공무원 / 공무직 구분 컬럼 추가
-        return data
-
     # ── 파일 업로드 (공무원 / 공무직 구분) ──────────────────────────────────
     st.markdown("#### 1. 새올 초과근무목록 업로드")
     col_up1, col_up2 = st.columns(2)
@@ -94,11 +94,13 @@ def show():
     try:
         frames = []
         if file_gongmuwon:
-            df_gm = parse_excel(file_gongmuwon.getvalue(), "공무원")
-            if df_gm is not None: frames.append(df_gm)
+            df_gm, err_gm = _parse_excel_cached(file_gongmuwon.getvalue(), "공무원")
+            if err_gm: st.error(err_gm)
+            elif df_gm is not None: frames.append(df_gm)
         if file_gongmujik:
-            df_gj = parse_excel(file_gongmujik.getvalue(), "공무직")
-            if df_gj is not None: frames.append(df_gj)
+            df_gj, err_gj = _parse_excel_cached(file_gongmujik.getvalue(), "공무직")
+            if err_gj: st.error(err_gj)
+            elif df_gj is not None: frames.append(df_gj)
 
         if not frames:
             return
